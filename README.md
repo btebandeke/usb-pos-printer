@@ -1,6 +1,6 @@
 # PosPrinter
 
-PosPrinter is a custom NodeJs project that supports printing of receipts via USB on POS printers. Single transaction and multiple item receipts are supported
+PosPrinter is a custom NodeJs project that supports printing of receipts via USB on POS printers. Single transaction and multiple item receipts are supported. This project was inspired by two npm packages; [node-thermal-printer](https://github.com/Klemen1337/node-thermal-printer) and [node-escpos](https://github.com/song940/node-escpos) and equally borrows a lot of their code to allow seamless print jobs from HTTP requests
 
 ## Installation
 
