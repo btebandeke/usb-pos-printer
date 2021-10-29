@@ -13,11 +13,11 @@ PosPrinter is a custom NodeJs project that supports printing of receipts via USB
 
 - Clone the repository to a location on the computer
 ```
-git clone https://gitlab.com/gbi-solutions/pos-printer.git
+git clone https://github.com/btebandeke/usb-pos-printer.git
 ```
 - Navigate to the folder where the project has been downloaded and install the dependencies
 ```
-cd pos-printer.git
+cd usb-pos-printer
 npm install
 ```
 - Start the server and if all goes well, the service should run on port `8081`
