@@ -7,6 +7,28 @@ const escpos = require('escpos');
 const express = require('express');
 const router = express.Router();
 
+const getDateString = (date) => {
+    let day = date.getDate();
+    if (day < 10) day = `0${day}`;
+
+    let month = date.getMonth()+1;
+    if (month < 10) month = `0${month}`;
+
+    const year = date.getFullYear();
+    let hrs = date.getHours();
+    if (hrs < 10) hrs = `0${hrs}`;
+
+    let minutes = date.getMinutes();
+    if (minutes < 10) minutes = `0${minutes}`;
+
+    let seconds = date.getSeconds();
+    if (seconds < 10) seconds = `0${seconds}`;
+
+    const localeDate = date.toLocaleString().substr(-2);
+
+    return `${day}-${month}-${year} ${hrs}:${minutes}:${seconds} ${localeDate}`;
+};
+
 router.get('/sample-print', function(req, res, next) {
 
     const printType = req.query["printType"] || "multiple";
@@ -67,10 +89,10 @@ router.get('/sample-print', function(req, res, next) {
     else {
 
         const products = [
-            {qty: 2, name: 'PRODUCT NAME 1', price: 67000, total: 134000},
-            {qty: 6, name: 'PRODUCT NAME 2', price: 87000, total: 522000},
-            {qty: 5, name: 'PRODUCT NAME 3', price: 58000, total: 290000},
-            {qty: 5, name: 'PRODUCT NAME 4', price: 510000, total: 2550000}
+            {qty: 2, name: 'CPTN GOLD 250', unit: 'BOX OF 12', price: 67000, total: 134000},
+            {qty: 6, name: 'BOND 750ML', unit: 'BOTTLES', price: 87000, total: 522000},
+            {qty: 5, name: 'BELL', unit: 'CRATE', price: 58000, total: 290000},
+            {qty: 5, name: 'TUSKER LITE', unit: 'CRATE', price: 510000, total: 2550000}
         ];
         let summation = 0;
 
@@ -91,19 +113,22 @@ router.get('/sample-print', function(req, res, next) {
         printer.newLine();
 
         printer.tableCustom([
-            { text:"Qty", align:"LEFT", cols:5, bold:true },
-            { text:"Item", align:"LEFT", cols:22, bold:true },
-            { text:"Unit Price", align:"RIGHT", cols:10, bold:true },
+            { text:"Qty", align:"LEFT", cols:4, bold:true },
+            { text:"Item", align:"LEFT", cols:14, bold:true },
+            { text:"Unit Name", align:"LEFT", cols:10, bold:true },
+            { text:"Price", align:"RIGHT", cols:9, bold:true },
             { text:"Amount", align:"RIGHT", cols:11, bold:true }
         ]);
+        printer.drawLine();
 
         products.forEach((product) => {
             summation += product.total;
             printer.tableCustom(
                 [
-                    { text: product.qty, align:"LEFT", cols:5 },
-                    { text: product.name, align:"LEFT", cols:22 },
-                    { text: formatCurrency(product.price), align:"RIGHT", cols:10 },
+                    { text: product.qty, align:"LEFT", cols:4 },
+                    { text: product.name, align:"LEFT", cols:14 },
+                    { text: product.unit, align:"LEFT", cols:10 },
+                    { text: formatCurrency(product.price), align:"RIGHT", cols:9 },
                     { text: formatCurrency(product.total), align:"RIGHT", cols:11 }
                 ]
             );
@@ -167,7 +192,62 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
     });
 
     if (printType === "single") {
-        //
+
+        let transactionDetails = null;
+        let lineItems = null;
+        if (printData.hasOwnProperty('transaction_details') && printData["transaction_details"].length > 0) {
+            transactionDetails = printData["transaction_details"][0];
+        }
+
+        if (printData.hasOwnProperty('line_items') && printData["line_items"].length > 0) {
+            lineItems = printData["line_items"];
+        }
+
+        if (transactionDetails && lineItems) {
+            const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
+            printer.setTypeFontA();
+            printer.alignCenter();
+            printer.bold(true);
+            printer.println("***** CUSTOMER COPY *****");
+            printer.drawLine();
+            printer.newLine();
+            printer.println(transactionDetails["company_name"]);
+            printer.println(transactionDetails["location"]);
+            printer.newLine();
+            printer.alignLeft();
+            printer.bold(false);
+            printer.println("DateTime: " + getDateString(transactionDate));
+            printer.println("Receipt No: " + transactionDetails["reference"]);
+            printer.println("Customer Ref: " + transactionDetails["customer_no"]);
+            printer.println("Customer Name: " + transactionDetails["customer_name"]);
+            printer.drawLine();
+
+            printer.newLine();
+            printer.alignCenter();
+            printer.bold(true);
+            printer.println(transactionDetails["receipt_header"]);
+            printer.println(transactionDetails["receipt_sub_header"]);
+            printer.drawLine();
+
+            printer.alignLeft();
+            printer.bold(false);
+
+            lineItems.forEach((row) => {
+                printer.leftRight(row["label"] +":", row["value"]);
+            });
+
+            printer.newLine();
+            printer.drawLine();
+            printer.println("You were served by: " + transactionDetails["staff"]);
+        }
+        else {
+            printer.setTypeFontB();
+            printer.setTextNormal();
+            printer.alignCenter();
+            printer.bold(true);
+            printer.println("RECEIPT DATA IS NOT IN THE EXPECTED FORMAT");
+        }
+
     }
     else {
         let transactionDetails = null;
@@ -184,6 +264,7 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             const amountPaid = Number(transactionDetails["amount_paid"] || transactionDetails["amount_inclusive"]);
             const totalSum = Number(transactionDetails["amount_inclusive"]);
             const change = totalSum - amountPaid;
+            const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
 
             printer.setTypeFontB();
             printer.setTextNormal();
@@ -198,22 +279,25 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             printer.bold(false);
             printer.println("Customer: " + transactionDetails["customer_name"]);
             printer.println("Receipt No: " + transactionDetails["reference"]);
-            printer.println("DateTime: " + transactionDetails["trans_date"]);
+            printer.println("DateTime: " + getDateString(transactionDate));
             printer.newLine();
 
             printer.tableCustom([
-                { text:"Qty", align:"LEFT", cols:5, bold:true },
-                { text:"Item", align:"LEFT", cols:22, bold:true },
-                { text:"Unit Price", align:"RIGHT", cols:10, bold:true },
+                { text:"Qty", align:"LEFT", cols:4, bold:true },
+                { text:"Item", align:"LEFT", cols:14, bold:true },
+                { text:"Unit Name", align:"LEFT", cols:10, bold:true },
+                { text:"Price", align:"RIGHT", cols:9, bold:true },
                 { text:"Amount", align:"RIGHT", cols:11, bold:true }
             ]);
+            printer.drawLine();
 
             saleItems.forEach((product) => {
                 printer.tableCustom(
                     [
-                        { text: product["quantity"], align:"LEFT", cols:5 },
-                        { text: product["item_name"], align:"LEFT", cols:22 },
-                        { text: formatCurrency(product["unit_price"]), align:"RIGHT", cols:10 },
+                        { text: product["quantity"], align:"LEFT", cols:4 },
+                        { text: product["item_name"], align:"LEFT", cols:14 },
+                        { text: product["unit_name"] || "DEFAULT", align:"LEFT", cols:10 },
+                        { text: formatCurrency(product["unit_price"]), align:"RIGHT", cols:9 },
                         { text: formatCurrency(product["amount"]), align:"RIGHT", cols:11 }
                     ]
                 );
@@ -228,15 +312,15 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             printer.drawLine();
             printer.newLine();
 
-            // printer.tableCustom([
-            //     { text:"CASH", align:"RIGHT", cols:18, bold:true },
-            //     { text: formatCurrency(amountPaid), align:"RIGHT", cols:30, bold:true }
-            // ]);
-            // printer.tableCustom([
-            //     { text:"CHANGE", align:"RIGHT", cols:18, bold:true },
-            //     { text: formatCurrency(change), align:"RIGHT", cols:30, bold:true }
-            // ]);
-            // printer.newLine();
+            printer.tableCustom([
+                { text:"CASH", align:"RIGHT", cols:18, bold:true },
+                { text: formatCurrency(amountPaid), align:"RIGHT", cols:30, bold:true }
+            ]);
+            printer.tableCustom([
+                { text:"CHANGE", align:"RIGHT", cols:18, bold:true },
+                { text: formatCurrency(change), align:"RIGHT", cols:30, bold:true }
+            ]);
+            printer.newLine();
 
             printer.println("Served By: " + transactionDetails["sales_person"]);
             printer.alignCenter();
