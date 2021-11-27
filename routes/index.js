@@ -210,10 +210,22 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             printer.bold(true);
             printer.println("***** CUSTOMER COPY *****");
             printer.drawLine();
-            printer.newLine();
-            printer.println(transactionDetails["company_name"]);
-            printer.println(transactionDetails["location"]);
-            printer.newLine();
+
+            if (transactionDetails["company_name"] || transactionDetails["location"]) {
+                printer.newLine();
+            }
+
+            if (transactionDetails["company_name"]) {
+                printer.println(transactionDetails["company_name"]);
+            }
+
+            if (transactionDetails["location"]) {
+                printer.println(transactionDetails["location"]);
+            }
+
+            if (transactionDetails["company_name"] || transactionDetails["location"]) {
+                printer.newLine();
+            }
             printer.alignLeft();
             printer.bold(false);
             printer.println("DateTime: " + getDateString(transactionDate));
