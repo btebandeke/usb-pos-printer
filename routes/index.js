@@ -264,12 +264,18 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
     else {
         let transactionDetails = null;
         let saleItems = null;
+        let fiscalData = null;
+
         if (printData.hasOwnProperty('transaction_details') && printData["transaction_details"].length > 0) {
             transactionDetails = printData["transaction_details"][0];
         }
 
         if (printData.hasOwnProperty('sale_items') && printData["sale_items"].length > 0) {
             saleItems = printData["sale_items"];
+        }
+
+        if (printData.hasOwnProperty('fiscal_data')) {
+            fiscalData = printData["fiscal_data"];
         }
 
         if (transactionDetails && saleItems) {
@@ -334,6 +340,23 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             ]);
             printer.newLine();
 
+            if (fiscalData) {
+                try {
+                    printer.alignCenter();
+                    printer.println("Fiscal Data");
+                    printer.drawLine();
+                    printer.alignLeft();
+
+                    printer.println("Invoice No: " + fiscalData["invoice_no"]);
+                    printer.println("FDN: " + fiscalData["fdn"]);
+                    printer.println("Verification Code: " + fiscalData["verification_code"]);
+
+                    printer.printQR(fiscalData["qrcode_data"]);
+
+                    printer.newLine();
+                }
+                catch (error) {}
+            }
             printer.println("Served By: " + transactionDetails["sales_person"]);
             printer.alignCenter();
             printer.bold(true);
