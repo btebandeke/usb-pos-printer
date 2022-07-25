@@ -296,7 +296,8 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             printer.alignLeft();
             printer.bold(false);
             printer.println("Customer: " + transactionDetails["customer_name"]);
-            printer.println("Receipt No: " + transactionDetails["reference"]);
+            printer.println("TIN: " + transactionDetails["customer_tin"] || "");
+            printer.println("Invoice No: " + transactionDetails["reference"]);
             printer.println("DateTime: " + getDateString(transactionDate));
             printer.newLine();
 
@@ -347,13 +348,16 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
                     printer.drawLine();
                     printer.alignLeft();
 
-                    printer.println("Invoice No: " + fiscalData["invoice_no"]);
+                    //printer.println("Invoice No: " + fiscalData["invoice_no"]);
                     printer.println("FDN: " + fiscalData["fdn"]);
                     printer.println("Verification Code: " + fiscalData["verification_code"]);
+                    printer.newLine();
 
+                    printer.alignCenter();
                     printer.printQR(fiscalData["qrcode_data"]);
 
                     printer.newLine();
+                    printer.alignLeft();
                 }
                 catch (error) {}
             }
