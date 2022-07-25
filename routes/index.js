@@ -334,6 +334,10 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             printer.newLine();
 
             printer.tableCustom([
+                { text:"Currency:", align:"RIGHT", cols:18, bold:true },
+                { text: transactionDetails["currency"] || "UGX", align:"RIGHT", cols:30, bold:true }
+            ]);
+            printer.tableCustom([
                 { text:"Tax", align:"RIGHT", cols:18, bold:true },
                 { text: formatCurrency(tax), align:"RIGHT", cols:30, bold:true }
             ]);
