@@ -281,6 +281,8 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
         if (transactionDetails && saleItems) {
             const amountPaid = Number(transactionDetails["amount_paid"] || transactionDetails["amount_inclusive"]);
             const totalSum = Number(transactionDetails["amount_inclusive"]);
+            const tax = Number(transactionDetails["tax"] || 0);
+            const amountExclusive = Number(transactionDetails["amount_exclusive"] || 0);
             const change = totalSum - amountPaid;
             const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
 
@@ -332,13 +334,21 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
             printer.newLine();
 
             printer.tableCustom([
-                { text:"CASH", align:"RIGHT", cols:18, bold:true },
-                { text: formatCurrency(amountPaid), align:"RIGHT", cols:30, bold:true }
+                { text:"Tax", align:"RIGHT", cols:18, bold:true },
+                { text: formatCurrency(tax), align:"RIGHT", cols:30, bold:true }
             ]);
             printer.tableCustom([
-                { text:"CHANGE", align:"RIGHT", cols:18, bold:true },
-                { text: formatCurrency(change), align:"RIGHT", cols:30, bold:true }
+                { text:"Amount Exclusive", align:"RIGHT", cols:18, bold:true },
+                { text: formatCurrency(amountExclusive), align:"RIGHT", cols:30, bold:true }
             ]);
+            printer.tableCustom([
+                { text:"Amount Inclusive", align:"RIGHT", cols:18, bold:true },
+                { text: formatCurrency(amountPaid), align:"RIGHT", cols:30, bold:true }
+            ]);
+            // printer.tableCustom([
+            //     { text:"CHANGE", align:"RIGHT", cols:18, bold:true },
+            //     { text: formatCurrency(change), align:"RIGHT", cols:30, bold:true }
+            // ]);
             printer.newLine();
 
             if (fiscalData) {
