@@ -173,232 +173,240 @@ router.get('/sample-print', function(req, res, next) {
 
 router.post('/print-to-pos/:printType?', function(req, res, next) {
 
-    const printType = req.params["printType"] || "multiple";
-    escpos.USB = require('escpos-usb');
-    const device  = new escpos.USB();
+    try {
+        const printType = req.params["printType"] || "multiple";
+        escpos.USB = require('escpos-usb');
+        const device  = new escpos.USB();
+        //console.log(JSON.stringify(device));
 
-    const posPrinter = new escpos.Printer(device);
-    const printData = req.body;
+        const posPrinter = new escpos.Printer(device);
+        const printData = req.body;
 
-    let printer = new ThermalPrinter({
-        type: Types.EPSON,  // 'star' or 'epson'
-        options: {
-            timeout: 1000
-        },
-        width: 48,                         // Number of characters in one line - default: 48
-        characterSet: 'PC437_USA',          // Character set - default: SLOVENIA
-        removeSpecialCharacters: false,    // Removes special characters - default: false
-        lineCharacter: "=",                // Use custom character for drawing lines - default: -
-    });
+        let printer = new ThermalPrinter({
+            type: Types.EPSON,  // 'star' or 'epson'
+            options: {
+                timeout: 1000
+            },
+            width: 48,                         // Number of characters in one line - default: 48
+            characterSet: 'PC437_USA',          // Character set - default: SLOVENIA
+            removeSpecialCharacters: false,    // Removes special characters - default: false
+            lineCharacter: "=",                // Use custom character for drawing lines - default: -
+        });
 
-    if (printType === "single") {
+        if (printType === "single") {
 
-        let transactionDetails = null;
-        let lineItems = null;
-        if (printData.hasOwnProperty('transaction_details') && printData["transaction_details"].length > 0) {
-            transactionDetails = printData["transaction_details"][0];
-        }
-
-        if (printData.hasOwnProperty('line_items') && printData["line_items"].length > 0) {
-            lineItems = printData["line_items"];
-        }
-
-        if (transactionDetails && lineItems) {
-            const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
-            printer.setTypeFontA();
-            printer.alignCenter();
-            printer.bold(true);
-            printer.println("***** CUSTOMER COPY *****");
-            printer.drawLine();
-
-            if (transactionDetails["company_name"] || transactionDetails["location"]) {
-                printer.newLine();
+            let transactionDetails = null;
+            let lineItems = null;
+            if (printData.hasOwnProperty('transaction_details') && printData["transaction_details"].length > 0) {
+                transactionDetails = printData["transaction_details"][0];
             }
 
-            if (transactionDetails["company_name"]) {
-                printer.println(transactionDetails["company_name"]);
+            if (printData.hasOwnProperty('line_items') && printData["line_items"].length > 0) {
+                lineItems = printData["line_items"];
             }
 
-            if (transactionDetails["location"]) {
-                printer.println(transactionDetails["location"]);
-            }
+            if (transactionDetails && lineItems) {
+                const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
+                const mainHeader = transactionDetails["main_header"] || "CUSTOMER COPY";
+                printer.setTypeFontA();
+                printer.alignCenter();
+                printer.bold(true);
+                printer.println(`***** ${mainHeader} *****`);
+                printer.drawLine();
 
-            if (transactionDetails["company_name"] || transactionDetails["location"]) {
-                printer.newLine();
-            }
-            printer.alignLeft();
-            printer.bold(false);
-            printer.println("DateTime: " + getDateString(transactionDate));
-            printer.println("Receipt No: " + transactionDetails["reference"]);
-            printer.println("Customer Ref: " + transactionDetails["customer_no"]);
-            printer.println("Customer Name: " + transactionDetails["customer_name"]);
-            printer.drawLine();
-
-            printer.newLine();
-            printer.alignCenter();
-            printer.bold(true);
-            printer.println(transactionDetails["receipt_header"]);
-            printer.println(transactionDetails["receipt_sub_header"]);
-            printer.drawLine();
-
-            printer.alignLeft();
-            printer.bold(false);
-
-            lineItems.forEach((row) => {
-                printer.leftRight(row["label"] +":", row["value"]);
-            });
-
-            printer.newLine();
-            printer.drawLine();
-            printer.println("You were served by: " + transactionDetails["staff"]);
-        }
-        else {
-            printer.setTypeFontB();
-            printer.setTextNormal();
-            printer.alignCenter();
-            printer.bold(true);
-            printer.println("RECEIPT DATA IS NOT IN THE EXPECTED FORMAT");
-        }
-
-    }
-    else {
-        let transactionDetails = null;
-        let saleItems = null;
-        let fiscalData = null;
-
-        if (printData.hasOwnProperty('transaction_details') && printData["transaction_details"].length > 0) {
-            transactionDetails = printData["transaction_details"][0];
-        }
-
-        if (printData.hasOwnProperty('sale_items') && printData["sale_items"].length > 0) {
-            saleItems = printData["sale_items"];
-        }
-
-        if (printData.hasOwnProperty('fiscal_data')) {
-            fiscalData = printData["fiscal_data"];
-        }
-
-        if (transactionDetails && saleItems) {
-            const amountPaid = Number(transactionDetails["amount_paid"] || transactionDetails["amount_inclusive"]);
-            const totalSum = Number(transactionDetails["amount_inclusive"]);
-            const tax = Number(transactionDetails["tax"] || 0);
-            const amountExclusive = Number(transactionDetails["amount_exclusive"] || 0);
-            const change = totalSum - amountPaid;
-            const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
-
-            printer.setTypeFontB();
-            printer.setTextNormal();
-            printer.alignCenter();
-            printer.bold(true);
-            printer.println(transactionDetails["company_name"]);
-            printer.println(transactionDetails["branch_name"]);
-            printer.println("Tel: " + transactionDetails["telephone"]);
-            printer.println("TIN: " + transactionDetails["tin"]);
-            printer.newLine();
-            printer.alignLeft();
-            printer.bold(false);
-            printer.println("Customer: " + transactionDetails["customer_name"]);
-            printer.println("TIN: " + transactionDetails["customer_tin"] || "");
-            printer.println("Invoice No: " + transactionDetails["reference"]);
-            printer.println("DateTime: " + getDateString(transactionDate));
-            printer.newLine();
-
-            printer.tableCustom([
-                { text:"Qty", align:"LEFT", cols:4, bold:true },
-                { text:"Item", align:"LEFT", cols:14, bold:true },
-                { text:"Unit Name", align:"LEFT", cols:10, bold:true },
-                { text:"Price", align:"RIGHT", cols:9, bold:true },
-                { text:"Amount", align:"RIGHT", cols:11, bold:true }
-            ]);
-            printer.drawLine();
-
-            saleItems.forEach((product) => {
-                printer.tableCustom(
-                    [
-                        { text: product["quantity"], align:"LEFT", cols:4 },
-                        { text: product["item_name"], align:"LEFT", cols:14 },
-                        { text: product["unit_name"] || "DEFAULT", align:"LEFT", cols:10 },
-                        { text: formatCurrency(product["unit_price"]), align:"RIGHT", cols:9 },
-                        { text: formatCurrency(product["amount"]), align:"RIGHT", cols:11 }
-                    ]
-                );
-            });
-
-            printer.drawLine();
-            printer.newLine();
-            printer.tableCustom([
-                { text:"TOTAL", align:"LEFT", cols:18, bold:true },
-                { text: formatCurrency(totalSum), align:"RIGHT", cols:30, bold:true }
-            ]);
-            printer.drawLine();
-            printer.newLine();
-
-            printer.tableCustom([
-                { text:"Currency:", align:"RIGHT", cols:18, bold:true },
-                { text: transactionDetails["currency"] || "UGX", align:"RIGHT", cols:30, bold:true }
-            ]);
-            printer.tableCustom([
-                { text:"Tax", align:"RIGHT", cols:18, bold:true },
-                { text: formatCurrency(tax), align:"RIGHT", cols:30, bold:true }
-            ]);
-            printer.tableCustom([
-                { text:"Amount Exclusive", align:"RIGHT", cols:18, bold:true },
-                { text: formatCurrency(amountExclusive), align:"RIGHT", cols:30, bold:true }
-            ]);
-            printer.tableCustom([
-                { text:"Amount Inclusive", align:"RIGHT", cols:18, bold:true },
-                { text: formatCurrency(amountPaid), align:"RIGHT", cols:30, bold:true }
-            ]);
-            // printer.tableCustom([
-            //     { text:"CHANGE", align:"RIGHT", cols:18, bold:true },
-            //     { text: formatCurrency(change), align:"RIGHT", cols:30, bold:true }
-            // ]);
-            printer.newLine();
-
-            if (fiscalData) {
-                try {
-                    printer.alignCenter();
-                    printer.println("Fiscal Data");
-                    printer.drawLine();
-                    printer.alignLeft();
-
-                    //printer.println("Invoice No: " + fiscalData["invoice_no"]);
-                    printer.println("FDN: " + fiscalData["fdn"]);
-                    printer.println("Verification Code: " + fiscalData["verification_code"]);
+                if (transactionDetails["company_name"] || transactionDetails["location"]) {
                     printer.newLine();
-
-                    printer.alignCenter();
-                    printer.printQR(fiscalData["qrcode_data"]);
-
-                    printer.newLine();
-                    printer.alignLeft();
                 }
-                catch (error) {}
+
+                if (transactionDetails["company_name"]) {
+                    printer.println(transactionDetails["company_name"]);
+                }
+
+                if (transactionDetails["location"]) {
+                    printer.println(transactionDetails["location"]);
+                }
+
+                if (transactionDetails["company_name"] || transactionDetails["location"]) {
+                    printer.newLine();
+                }
+                printer.alignLeft();
+                printer.bold(false);
+                printer.println("DateTime: " + getDateString(transactionDate));
+                printer.println("Receipt No: " + transactionDetails["reference"]);
+                printer.println("Customer Ref: " + transactionDetails["customer_no"]);
+                printer.println("Customer Name: " + transactionDetails["customer_name"]);
+                printer.drawLine();
+
+                printer.newLine();
+                printer.alignCenter();
+                printer.bold(true);
+                printer.println(transactionDetails["receipt_header"]);
+                printer.println(transactionDetails["receipt_sub_header"]);
+                printer.drawLine();
+
+                printer.alignLeft();
+                printer.bold(false);
+
+                lineItems.forEach((row) => {
+                    printer.leftRight(row["label"] +":", row["value"]);
+                });
+
+                printer.newLine();
+                printer.drawLine();
+                printer.println("You were served by: " + transactionDetails["staff"]);
             }
-            printer.println("Served By: " + transactionDetails["sales_person"]);
-            printer.alignCenter();
-            printer.bold(true);
-            printer.newLine();
-            printer.println("Thank you for your business!");
+            else {
+                printer.setTypeFontB();
+                printer.setTextNormal();
+                printer.alignCenter();
+                printer.bold(true);
+                printer.println("RECEIPT DATA IS NOT IN THE EXPECTED FORMAT");
+            }
+
         }
         else {
-            printer.setTypeFontB();
-            printer.setTextNormal();
-            printer.alignCenter();
-            printer.bold(true);
-            printer.println("RECEIPT DATA IS NOT IN THE EXPECTED FORMAT");
+            let transactionDetails = null;
+            let saleItems = null;
+            let fiscalData = null;
+
+            if (printData.hasOwnProperty('transaction_details') && printData["transaction_details"].length > 0) {
+                transactionDetails = printData["transaction_details"][0];
+            }
+
+            if (printData.hasOwnProperty('sale_items') && printData["sale_items"].length > 0) {
+                saleItems = printData["sale_items"];
+            }
+
+            if (printData.hasOwnProperty('fiscal_data')) {
+                fiscalData = printData["fiscal_data"];
+            }
+
+            if (transactionDetails && saleItems) {
+                const amountPaid = Number(transactionDetails["amount_paid"] || transactionDetails["amount_inclusive"]);
+                const totalSum = Number(transactionDetails["amount_inclusive"]);
+                const tax = Number(transactionDetails["tax"] || 0);
+                const amountExclusive = Number(transactionDetails["amount_exclusive"] || 0);
+                const change = totalSum - amountPaid;
+                const transactionDate = new Date(Date.parse(transactionDetails["trans_date"]));
+
+                printer.setTypeFontB();
+                printer.setTextNormal();
+                printer.alignCenter();
+                printer.bold(true);
+                printer.println(transactionDetails["company_name"]);
+                printer.println(transactionDetails["branch_name"]);
+                printer.println("Tel: " + transactionDetails["telephone"]);
+                printer.println("TIN: " + transactionDetails["tin"]);
+                printer.newLine();
+                printer.alignLeft();
+                printer.bold(false);
+                printer.println("Customer: " + transactionDetails["customer_name"]);
+                printer.println("TIN: " + transactionDetails["customer_tin"] || "");
+                printer.println("Invoice No: " + transactionDetails["reference"]);
+                printer.println("DateTime: " + getDateString(transactionDate));
+                printer.newLine();
+
+                printer.tableCustom([
+                    { text:"Qty", align:"LEFT", cols:4, bold:true },
+                    { text:"Item", align:"LEFT", cols:14, bold:true },
+                    { text:"Unit Name", align:"LEFT", cols:10, bold:true },
+                    { text:"Price", align:"RIGHT", cols:9, bold:true },
+                    { text:"Amount", align:"RIGHT", cols:11, bold:true }
+                ]);
+                printer.drawLine();
+
+                saleItems.forEach((product) => {
+                    printer.tableCustom(
+                        [
+                            { text: product["quantity"], align:"LEFT", cols:4 },
+                            { text: product["item_name"], align:"LEFT", cols:14 },
+                            { text: product["unit_name"] || "DEFAULT", align:"LEFT", cols:10 },
+                            { text: formatCurrency(product["unit_price"]), align:"RIGHT", cols:9 },
+                            { text: formatCurrency(product["amount"]), align:"RIGHT", cols:11 }
+                        ]
+                    );
+                });
+
+                printer.drawLine();
+                printer.newLine();
+                printer.tableCustom([
+                    { text:"TOTAL", align:"LEFT", cols:18, bold:true },
+                    { text: formatCurrency(totalSum), align:"RIGHT", cols:30, bold:true }
+                ]);
+                printer.drawLine();
+                printer.newLine();
+
+                printer.tableCustom([
+                    { text:"Currency:", align:"RIGHT", cols:18, bold:true },
+                    { text: transactionDetails["currency"] || "UGX", align:"RIGHT", cols:30, bold:true }
+                ]);
+                printer.tableCustom([
+                    { text:"Tax", align:"RIGHT", cols:18, bold:true },
+                    { text: formatCurrency(tax), align:"RIGHT", cols:30, bold:true }
+                ]);
+                printer.tableCustom([
+                    { text:"Amount Exclusive", align:"RIGHT", cols:18, bold:true },
+                    { text: formatCurrency(amountExclusive), align:"RIGHT", cols:30, bold:true }
+                ]);
+                printer.tableCustom([
+                    { text:"Amount Inclusive", align:"RIGHT", cols:18, bold:true },
+                    { text: formatCurrency(amountPaid), align:"RIGHT", cols:30, bold:true }
+                ]);
+                // printer.tableCustom([
+                //     { text:"CHANGE", align:"RIGHT", cols:18, bold:true },
+                //     { text: formatCurrency(change), align:"RIGHT", cols:30, bold:true }
+                // ]);
+                printer.newLine();
+
+                if (fiscalData) {
+                    try {
+                        printer.alignCenter();
+                        printer.println("Fiscal Data");
+                        printer.drawLine();
+                        printer.alignLeft();
+
+                        //printer.println("Invoice No: " + fiscalData["invoice_no"]);
+                        printer.println("FDN: " + fiscalData["fdn"]);
+                        printer.println("Verification Code: " + fiscalData["verification_code"]);
+                        printer.newLine();
+
+                        printer.alignCenter();
+                        printer.printQR(fiscalData["qrcode_data"]);
+
+                        printer.newLine();
+                        printer.alignLeft();
+                    }
+                    catch (error) {}
+                }
+                printer.println("Served By: " + transactionDetails["sales_person"]);
+                printer.alignCenter();
+                printer.bold(true);
+                printer.newLine();
+                printer.println("Thank you for your business!");
+            }
+            else {
+                printer.setTypeFontB();
+                printer.setTextNormal();
+                printer.alignCenter();
+                printer.bold(true);
+                printer.println("RECEIPT DATA IS NOT IN THE EXPECTED FORMAT");
+            }
         }
+
+        printer.cut();
+
+        device.open(function () {
+            posPrinter.raw(printer.getBuffer()).close();
+        });
+
+        //console.log(printer.getPrintBuffer());
+
+        res.status(200).json({});
+    }
+    catch (error) {
+        res.status(500).json(error);
     }
 
-    printer.cut();
-
-    device.open(function () {
-        posPrinter.raw(printer.getBuffer()).close();
-    });
-
-    //console.log(printer.getPrintBuffer());
-
-    res.status(200).json({});
 });
 
 function formatCurrency(amount) {
