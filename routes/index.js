@@ -177,10 +177,12 @@ router.post('/print-to-pos/:printType?', function(req, res, next) {
         const printType = req.params["printType"] || "multiple";
         escpos.USB = require('escpos-usb');
         const device  = new escpos.USB();
-        //console.log(JSON.stringify(device));
 
         const posPrinter = new escpos.Printer(device);
         const printData = req.body;
+        console.log("**********POSTED DATA (copy to JSONLint for proper view)********\n");
+        console.log(JSON.stringify(printData));
+        console.log("\n**********END OF POSTED DATA********");
 
         let printer = new ThermalPrinter({
             type: Types.EPSON,  // 'star' or 'epson'
